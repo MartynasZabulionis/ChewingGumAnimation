@@ -162,7 +162,11 @@ class _GumPainter extends CustomPainter {
       ),
       Offset(
         size.width / 2 - _buttonDiameter * lerpDouble(0.75, 0.3 / cutProgressMaxBound, cutProgress)!,
-        size.height - progressPixels - _buttonDiameter * lerpDouble(1.1, 0.3 / cutProgressMaxBound, cutProgress)!,
+        size.height -
+            progressPixels -
+            _buttonDiameter * lerpDouble(1.1, 0.3 / cutProgressMaxBound, cutProgress)! -
+            _widget.bottomPadding +
+            10,
       ),
       size,
     );
