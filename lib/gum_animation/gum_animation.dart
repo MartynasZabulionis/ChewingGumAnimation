@@ -52,23 +52,25 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
     }
   }
 
-  void _tear({required bool isDragged}) {
+  void _setNewAnimationState(AnimationState state) {
     _animationState.dispose();
-    final newState = TearedAnimationState(
+    _animationState = state;
+    _animationStateDispatcher.add(_animationState);
+  }
+
+  void _tear({required bool isDragged}) {
+    final newState = TornAnimationState(
       _animationState.currentButtonDistance,
       this,
       () {
         _animationStateDispatcher.add(_animationState);
 
-        if ((_animationState as TearedAnimationState).hasReturnedToInitialPosition) {
-          _animationState.dispose();
-          _animationState = _getAnimationInitialState();
-          _animationStateDispatcher.add(_animationState);
+        if ((_animationState as TornAnimationState).downwardAnimationProgress == 1) {
+          _setNewAnimationState(_getAnimationInitialState());
         }
       },
     );
-    _animationState = newState;
-    _animationStateDispatcher.add(_animationState);
+    _setNewAnimationState(newState);
     newState.animateGumTear();
 
     if (!isDragged) {
@@ -114,18 +116,17 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
 
   GumState _stateToGumState(AnimationState state) {
     if (state is StretchingAnimationState) {
-      return GumStreatchingState(state.currentButtonDistance);
+      return GumStretchingState(state.currentButtonDistance);
     }
-    state as TearedAnimationState;
-    final buttonController = state.buttonAnimationController;
-    return GumTearedState(
-      state.gumTearAnimationController?.value ?? 1,
-      buttonController is ButtonBackwardAnimationController ? buttonController.value : 0,
+    state as TornAnimationState;
+    return GumTornState(
+      state.gumTearingProgress,
+      state.downwardAnimationProgress,
     );
   }
 
   double _stateToMenuOpacity(AnimationState state) {
-    if (state is TearedAnimationState) {
+    if (state is TornAnimationState) {
       return state.menuOpacity;
     }
     return 0;
@@ -136,13 +137,13 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
   }
 
   bool _stateToButtonIgnorePoint(AnimationState state) {
-    return state is TearedAnimationState &&
-        (state.buttonAnimationController is ButtonForwardAnimationController ||
-            state.buttonAnimationController is ButtonBackwardAnimationController);
+    return state is TornAnimationState &&
+        (state.buttonAnimationType == ButtonAnimationType.upward ||
+            state.buttonAnimationType == ButtonAnimationType.upward);
   }
 
   double _stateToButtonColorProgress(AnimationState state) {
-    return state is TearedAnimationState ? state.buttonColorChangeProgress : 0.0;
+    return state is TornAnimationState ? state.buttonColorChangeProgress : 0.0;
   }
 
   @override
@@ -209,7 +210,8 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
             childBuilder: () {
               return StreamBuilderWithCachedChild(
                 initialValue: _animationState.currentButtonDistance,
-                stream: _animationStateDispatcher.stream.map((e) => e.currentButtonDistance).distinct(),
+                stream:
+                    _animationStateDispatcher.stream.map((e) => e.currentButtonDistance).distinct(),
                 builder: (context, child, currentButtonDistance) {
                   return Padding(
                     padding: EdgeInsets.only(bottom: widget.bottomPadding + currentButtonDistance),
@@ -222,14 +224,14 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
                       final state = _animationState;
                       if (state is StretchingAnimationState) {
                         state.stopAnimation();
-                      } else if (state is TearedAnimationState) {
+                      } else if (state is TornAnimationState) {
                         state.animateBackToInitial();
                       }
                     },
                     onPanUpdate: (details) {
                       final state = _animationState;
-                      if (state is TearedAnimationState &&
-                          state.buttonAnimationController is ButtonBackwardAnimationController) {
+                      if (state is TornAnimationState &&
+                          state.buttonAnimationType == ButtonAnimationType.downward) {
                         return;
                       }
 
@@ -240,7 +242,7 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
                         state.currentButtonDistance = finalButtonDistance;
                       }
 
-                      if (state is TearedAnimationState) {
+                      if (state is TornAnimationState) {
                         state.updateMenuOpacity(buttonDistanceUntilTear, finalButtonDistance);
                       }
                       _animationStateDispatcher.add(state);
@@ -257,9 +259,11 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
                           finalButtonDistance,
                           pixelsPerSecond,
                         );
-                      } else if (state is TearedAnimationState && state.buttonColorChangeProgress == 0) {
+                      } else if (state is TornAnimationState &&
+                          state.buttonColorChangeProgress == 0) {
                         if (pixelsPerSecond <= 0) {
-                          state.animateButtonToFinalPoint(buttonDistanceUntilTear, finalButtonDistance);
+                          state.animateButtonToFinalPoint(
+                              buttonDistanceUntilTear, finalButtonDistance);
                         } else {
                           state.animateBackToInitial();
                         }
@@ -267,7 +271,9 @@ class _GumAnimationState extends State<GumAnimation> with TickerProviderStateMix
                     },
                     child: StreamBuilder(
                         initialData: _stateToButtonColorProgress(_animationState),
-                        stream: _animationStateDispatcher.stream.map(_stateToButtonColorProgress).distinct(),
+                        stream: _animationStateDispatcher.stream
+                            .map(_stateToButtonColorProgress)
+                            .distinct(),
                         builder: (context, snapshot) {
                           final progress = snapshot.data!;
                           return Stack(

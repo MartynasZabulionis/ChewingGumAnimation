@@ -54,34 +54,61 @@ class StretchingAnimationState extends AnimationState {
   }
 }
 
-mixin _ on AnimationController {}
-class ButtonAnimationController = AnimationController with _;
-class ButtonColorAnimationController = ButtonAnimationController with _;
-class ButtonForwardAnimationController = ButtonAnimationController with _;
-class ButtonBackwardAnimationController = ButtonAnimationController with _;
+enum ButtonAnimationType {
+  color,
+  upward,
+  downward,
+}
 
-class TearedAnimationState extends AnimationState {
+class ButtonAnimationController extends AnimationController {
+  final ButtonAnimationType type;
+
+  ButtonAnimationController({
+    required this.type,
+    required super.vsync,
+    super.lowerBound = 0.0,
+    super.upperBound = 1.0,
+  });
+}
+
+class TornAnimationState extends AnimationState {
   ButtonAnimationController? _buttonAnimationController;
-  ButtonAnimationController? get buttonAnimationController => _buttonAnimationController;
+
+  ButtonAnimationType? get buttonAnimationType {
+    return _buttonAnimationController?.type;
+  }
 
   AnimationController? _gumTearAnimationController;
-  AnimationController? get gumTearAnimationController => _gumTearAnimationController;
 
-  double menuOpacity = 0;
-  double buttonColorChangeProgress = 0;
+  double _gumTearProgress = 0;
+  double get gumTearingProgress => _gumTearProgress;
 
-  TearedAnimationState(super.currentButtonDistance, super.vsync, super.onUpdate);
+  double _menuOpacity = 0;
+  double get menuOpacity => _menuOpacity;
+
+  double _buttonColorChangeProgress = 0;
+  double get buttonColorChangeProgress => _buttonColorChangeProgress;
+
+  double get downwardAnimationProgress =>
+      buttonAnimationType == ButtonAnimationType.downward ? _buttonAnimationController!.value : 0;
+
+  TornAnimationState(
+    super.currentButtonDistance,
+    super.vsync,
+    super.onUpdate,
+  );
 
   bool get hasReturnedToInitialPosition =>
-      _buttonAnimationController is ButtonBackwardAnimationController && _buttonAnimationController!.value == 1;
+      buttonAnimationType == ButtonAnimationType.downward && _buttonAnimationController!.value == 1;
 
   void animateGumTear() {
     _gumTearAnimationController = AnimationController(
       vsync: vsync,
       duration: const Duration(milliseconds: 200),
     )..addListener(() {
+        _gumTearProgress = _gumTearAnimationController!.value;
         onUpdate();
-        if (_gumTearAnimationController!.value == 1) {
+        if (_gumTearProgress == 1) {
           _gumTearAnimationController!.dispose();
           _gumTearAnimationController = null;
         }
@@ -90,18 +117,19 @@ class TearedAnimationState extends AnimationState {
   }
 
   void updateMenuOpacity(double buttonDistanceUntilTear, double finalButtonDistance) {
-    menuOpacity =
-        max(currentButtonDistance - buttonDistanceUntilTear, 0) / (finalButtonDistance - buttonDistanceUntilTear);
+    _menuOpacity = max(currentButtonDistance - buttonDistanceUntilTear, 0) /
+        (finalButtonDistance - buttonDistanceUntilTear);
   }
 
   void animateButtonToFinalPoint(double buttonDistanceUntilTear, double finalButtonDistance) {
     if (currentButtonDistance == finalButtonDistance) {
-      menuOpacity = 1;
+      _menuOpacity = 1;
 
       _animateButtonColor();
       return;
     }
-    _buttonAnimationController = ButtonForwardAnimationController(
+    _buttonAnimationController = ButtonAnimationController(
+      type: ButtonAnimationType.upward,
       vsync: vsync,
       upperBound: finalButtonDistance,
       lowerBound: currentButtonDistance,
@@ -124,9 +152,11 @@ class TearedAnimationState extends AnimationState {
 
   void _animateButtonColor() {
     _buttonAnimationController?.dispose();
-    _buttonAnimationController = ButtonColorAnimationController(vsync: vsync)
-      ..addListener(() {
-        buttonColorChangeProgress = _buttonAnimationController!.value;
+    _buttonAnimationController = ButtonAnimationController(
+      type: ButtonAnimationType.color,
+      vsync: vsync,
+    )..addListener(() {
+        _buttonColorChangeProgress = _buttonAnimationController!.value;
         onUpdate();
         if (_buttonAnimationController!.value == 1) {
           _buttonAnimationController!.dispose();
@@ -137,16 +167,19 @@ class TearedAnimationState extends AnimationState {
   }
 
   void animateBackToInitial() {
-    _buttonAnimationController?.dispose();
-    final previousPadding = currentButtonDistance;
+    final previousButtonDistance = currentButtonDistance;
     final previousMenuOpacity = menuOpacity;
     final previousButtonColorChangeProgress = buttonColorChangeProgress;
-    _buttonAnimationController = ButtonBackwardAnimationController(vsync: vsync)
-      ..addListener(() {
+
+    _buttonAnimationController?.dispose();
+    _buttonAnimationController = ButtonAnimationController(
+      type: ButtonAnimationType.downward,
+      vsync: vsync,
+    )..addListener(() {
         final reverseProgress = 1 - _buttonAnimationController!.value;
-        currentButtonDistance = previousPadding * reverseProgress;
-        menuOpacity = previousMenuOpacity * reverseProgress;
-        buttonColorChangeProgress = previousButtonColorChangeProgress * reverseProgress;
+        currentButtonDistance = previousButtonDistance * reverseProgress;
+        _menuOpacity = previousMenuOpacity * reverseProgress;
+        _buttonColorChangeProgress = previousButtonColorChangeProgress * reverseProgress;
         onUpdate();
       });
     _buttonAnimationController!.animateTo(1, duration: const Duration(milliseconds: 300));

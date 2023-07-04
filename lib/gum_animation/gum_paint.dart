@@ -5,28 +5,28 @@ import 'package:flutter/material.dart';
 
 abstract class GumState {}
 
-class GumStreatchingState extends GumState {
+class GumStretchingState extends GumState {
   final double progressPixels;
 
-  GumStreatchingState(this.progressPixels);
+  GumStretchingState(this.progressPixels);
 
   @override
   bool operator ==(Object? other) {
-    return other is GumStreatchingState && other.progressPixels == progressPixels;
+    return other is GumStretchingState && other.progressPixels == progressPixels;
   }
 
   @override
   int get hashCode => progressPixels.toInt();
 }
 
-class GumTearedState extends GumState {
+class GumTornState extends GumState {
   final double tearingProgress;
   final double fadingProgress;
-  GumTearedState(this.tearingProgress, this.fadingProgress);
+  GumTornState(this.tearingProgress, this.fadingProgress);
 
   @override
   bool operator ==(Object? other) {
-    return other is GumTearedState &&
+    return other is GumTornState &&
         other.tearingProgress == tearingProgress &&
         other.fadingProgress == fadingProgress;
   }
@@ -83,8 +83,8 @@ class _GumPainter extends CustomPainter {
     double secondControlY,
     Path path,
   ) {
-    final arcCircleCenterY =
-        endY + (size.width / 2 - leftEndX) * (leftEndX - secondLeftControlX) / (endY - secondControlY);
+    final arcCircleCenterY = endY +
+        (size.width / 2 - leftEndX) * (leftEndX - secondLeftControlX) / (endY - secondControlY);
 
     final circleCenter = Offset(size.width / 2, arcCircleCenterY);
     final radius = sqrt(pow(circleCenter.dx - leftEndX, 2) + pow(circleCenter.dy - endY, 2));
@@ -157,11 +157,13 @@ class _GumPainter extends CustomPainter {
         size.height,
       ),
       Offset(
-        size.width / 2 - _buttonDiameter * lerpDouble(1.5, -0.5 / cutProgressMaxBound, cutProgress)!,
+        size.width / 2 -
+            _buttonDiameter * lerpDouble(1.5, -0.5 / cutProgressMaxBound, cutProgress)!,
         size.height - _buttonDiameter,
       ),
       Offset(
-        size.width / 2 - _buttonDiameter * lerpDouble(0.75, 0.3 / cutProgressMaxBound, cutProgress)!,
+        size.width / 2 -
+            _buttonDiameter * lerpDouble(0.75, 0.3 / cutProgressMaxBound, cutProgress)!,
         size.height -
             progressPixels -
             _buttonDiameter * lerpDouble(1.1, 0.3 / cutProgressMaxBound, cutProgress)! -
@@ -174,7 +176,7 @@ class _GumPainter extends CustomPainter {
     canvas.drawPath(path, _getGumPaint());
   }
 
-  void _paintTear(Canvas canvas, Size size, GumTearedState gumTearedState) {
+  void _paintTear(Canvas canvas, Size size, GumTornState gumTearedState) {
     if (gumTearedState.fadingProgress == 1) {
       return;
     }
@@ -209,9 +211,9 @@ class _GumPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final gumState = _gumState;
-    if (gumState is GumStreatchingState) {
+    if (gumState is GumStretchingState) {
       _paintStretch(canvas, size, gumState.progressPixels);
-    } else if (gumState is GumTearedState) {
+    } else if (gumState is GumTornState) {
       _paintTear(canvas, size, gumState);
     }
   }
